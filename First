@@ -6,16 +6,14 @@ import sys
 import subprocess
 
 class Colors:
-	def __init__(self):
-		pass
-
+	
 	@staticmethod
 	def red_color(color):
 		return "\033[1;31;10m" + color
 
 	@staticmethod
 	def bright_blue(color):
-		return "\033[1;37;10m" + color
+		return "\033[1;34;10m" + color
 
 	@staticmethod
 	def green_color(color):
@@ -25,12 +23,12 @@ class Colors:
 	def white_color(color):
 		return "\033[1;37;10m" + color
 
-class Parser:
+class Parser(Colors):
 	def __init__(self):
 		self.args = argparse.ArgumentParser(description="Write here")
 		self.args.add_argument("--ip", help="Get your public IP", action='store_true')
-		self.args.add_argument("--tor", help="Tor proxy. Select the browser to use.")  # make them pick the browsers to use with this. # check if the word is already inside the file if not append to it
-		self.args.add_argument("--proxy", help="SOCKS5 or SOCKS4 proxy", type=self.check_socks)
+		self.args.add_argument("--tor", help="Tor proxy. Select the browser to use.", type=self.check_browser)  # make them pick the browsers to use with this. # check if the word is already inside the file if not append to it
+		self.args.add_argument("--proxy", help="socks4 or socks5 proxy", type=self.check_socks)
 		self.args.add_argument("--port", help="The port you want to connect to")
 
 		self.args_parsed = self.args.parse_args()
@@ -60,15 +58,26 @@ class Parser:
 			raise argparse.ArgumentError(msg)
 		return socks
 
+	def check_browser(self, browser):
+		browser_lists = ["firefox"] # add more later
+		if not browser in browser_lists:
+			msg = "[-] Invalid browser."
+			raise argparse.ArgumentError(msg)
+		return browser
+
 class PublicIp:
 	def __init__(self):
 		pass
 
 	@staticmethod
 	def get_public_ip():
-		f = open("text.txt", "w")
-		call_ip = subprocess.call(["nslookup", "myip.opendns.com", "resolver1.opendns.com"], stdout=f)
-		f.close()
+		try:
+			f = open("text.txt", "w")
+			call_ip = subprocess.call(["nslookup", "myip.opendns.com", "resolver1.opendns.com"], stdout=f)
+			f.close()
+		except PermissionError:
+			print(Colors.red_color("[-] Permission denied. Try using sudo."))
+			exit()
 
 		with open("text.txt", "r") as file:
 			data = file.read()
@@ -80,18 +89,44 @@ class PublicIp:
 
 		return get_ip
 
-class TorProxy:
+class TorProxy(Parser):
 	def __init__(self):
+		super().__init__()
+
 		self.browser = Parser.tor(self)  # the browser the user wants to open up with tor
 		self.proxy_chain = Parser.proxy(self)  # socks4 or socks5
+
+	def set_proxy_chain(self):  # TOR service needs to be on for the proxychain to work.  # IF NOT on turn it on. else if on continue
+		loopback_address = "127.0.0.1"
+		tor_port = "9050"
+		proxy_type = self.proxy_chain
+		err_msg = f"[-] {proxy_type} is already a proxy."
+		proxy_chain_config = "testfileproxy"
+
+		with open(proxy_chain_config, "r") as f:
+			data = f.read()
+			data = data.split()
+
+		if self.proxy_chain in data[280:]:
+			print(self.red_color(err_msg))
+			exit()
+		else:
+			try:
+				with open(proxy_chain_config, "a") as f:
+					f.write("{}\t{} {}\n".format(proxy_type, loopback_address, tor_port))
+					print(self.bright_blue("\n[+] Successfully wrote to file."))
+			except Exception as e:
+				print(e)
+				print(self.red_color("[-] Was not able to write to file."))
  
 if __name__ == '__main__':
 	try:
 		argument = sys.argv[1:]
 		if "--ip" in argument:
 			print(PublicIp.get_public_ip())
-		elif "--proxy" in argument:
+		elif "--proxy" in argument and "--tor" in argument:
 			Parser().check_tor_running()
+			TorProxy().set_proxy_chain()
 		else:
 			print(Colors.red_color("[-] Invalid argument."))
 	except IndexError:
