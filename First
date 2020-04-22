@@ -29,11 +29,36 @@ class Parser:
 	def __init__(self):
 		self.args = argparse.ArgumentParser(description="Write here")
 		self.args.add_argument("--ip", help="Get your public IP", action='store_true')
+		self.args.add_argument("--tor", help="Tor proxy. Select the browser to use.")  # make them pick the browsers to use with this. # check if the word is already inside the file if not append to it
+		self.args.add_argument("--proxy", help="SOCKS5 or SOCKS4 proxy", type=self.check_socks)
+		self.args.add_argument("--port", help="The port you want to connect to")
 
 		self.args_parsed = self.args.parse_args()
 
 	def ip(self):
 		return self.args_parsed.ip
+
+	def tor(self):  # return the browser here
+		return self.args_parsed.tor
+
+	def proxy(self):
+		return self.args_parsed.proxy
+
+	def check_tor_running(self):
+		check_tor = subprocess.check_output(["netstat", "-tupln"])
+		check_tor = check_tor.decode()
+		
+		if not "9050" in check_tor:
+			msg = "[-] Tor is not running. Please do (sudo service tor start) to run tor."
+			print(Colors.red_color(msg))
+			exit()
+
+	def check_socks(self, socks):
+		sockets = ["socks4", "socks5"]
+		if not socks in sockets:
+			msg = "[-] Invalid proxy."
+			raise argparse.ArgumentError(msg)
+		return socks
 
 class PublicIp:
 	def __init__(self):
@@ -55,11 +80,18 @@ class PublicIp:
 
 		return get_ip
 
+class TorProxy:
+	def __init__(self):
+		self.browser = Parser.tor(self)  # the browser the user wants to open up with tor
+		self.proxy_chain = Parser.proxy(self)  # socks4 or socks5
+ 
 if __name__ == '__main__':
 	try:
 		argument = sys.argv[1:]
 		if "--ip" in argument:
 			print(PublicIp.get_public_ip())
+		elif "--proxy" in argument:
+			Parser().check_tor_running()
 		else:
 			print(Colors.red_color("[-] Invalid argument."))
 	except IndexError:
