@@ -1,0 +1,66 @@
+import socks
+import argparse
+import os
+import re
+import sys
+import subprocess
+
+class Colors:
+	def __init__(self):
+		pass
+
+	@staticmethod
+	def red_color(color):
+		return "\033[1;31;10m" + color
+
+	@staticmethod
+	def bright_blue(color):
+		return "\033[1;37;10m" + color
+
+	@staticmethod
+	def green_color(color):
+		return "\033[1;32;10m" + color
+
+	@staticmethod
+	def white_color(color):
+		return "\033[1;37;10m" + color
+
+class Parser:
+	def __init__(self):
+		self.args = argparse.ArgumentParser(description="Write here")
+		self.args.add_argument("--ip", help="Get your public IP", action='store_true')
+
+		self.args_parsed = self.args.parse_args()
+
+	def ip(self):
+		return self.args_parsed.ip
+
+class PublicIp:
+	def __init__(self):
+		pass
+
+	@staticmethod
+	def get_public_ip():
+		f = open("text.txt", "w")
+		call_ip = subprocess.call(["nslookup", "myip.opendns.com", "resolver1.opendns.com"], stdout=f)
+		f.close()
+
+		with open("text.txt", "r") as file:
+			data = file.read()
+			file.close()
+			os.remove("text.txt")
+
+		get_ip = re.findall("Address:.*", data)
+		get_ip = get_ip.pop(1).replace("Address: ", "")
+
+		return get_ip
+
+if __name__ == '__main__':
+	try:
+		argument = sys.argv[1:]
+		if "--ip" in argument:
+			print(PublicIp.get_public_ip())
+		else:
+			print(Colors.red_color("[-] Invalid argument."))
+	except IndexError:
+		pass
