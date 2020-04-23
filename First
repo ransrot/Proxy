@@ -4,9 +4,11 @@ import os
 import re
 import sys
 import subprocess
+import requests
+from bs4 import BeautifulSoup
 
 class Colors:
-	
+
 	@staticmethod
 	def red_color(color):
 		return "\033[1;31;10m" + color
@@ -27,9 +29,11 @@ class Parser(Colors):
 	def __init__(self):
 		self.args = argparse.ArgumentParser(description="Write here")
 		self.args.add_argument("--ip", help="Get your public IP", action='store_true')
-		self.args.add_argument("--tor", help="Tor proxy. Select the browser to use.", type=self.check_browser)  # make them pick the browsers to use with this. # check if the word is already inside the file if not append to it
-		self.args.add_argument("--proxy", help="socks4 or socks5 proxy", type=self.check_socks)
-		self.args.add_argument("--port", help="The port you want to connect to")
+		self.args.add_argument("--tor", help="Tor proxy. Select the browser to use.", type=self.check_browser)
+		self.args.add_argument("--proxytor", help="socks4 or socks5 proxy for tor. ", type=self.check_socks)  # tor argument proxys
+		
+		# ---------------------------------------------------------------------------------------------------- #
+		self.args.add_argument("--view", help="View the avlaliable proxies") # view proxies that are currently avalaible
 
 		self.args_parsed = self.args.parse_args()
 
@@ -39,8 +43,8 @@ class Parser(Colors):
 	def tor(self):  # return the browser here
 		return self.args_parsed.tor
 
-	def proxy(self):
-		return self.args_parsed.proxy
+	def proxytor(self):
+		return self.args_parsed.proxytor
 
 	def check_tor_running(self):
 		check_tor = subprocess.check_output(["netstat", "-tupln"])
@@ -66,8 +70,6 @@ class Parser(Colors):
 		return browser
 
 class PublicIp:
-	def __init__(self):
-		pass
 
 	@staticmethod
 	def get_public_ip():
@@ -94,40 +96,94 @@ class TorProxy(Parser):
 		super().__init__()
 
 		self.browser = Parser.tor(self)  # the browser the user wants to open up with tor
-		self.proxy_chain = Parser.proxy(self)  # socks4 or socks5
+		self.proxy_chain = Parser.proxytor(self)  # socks4 or socks5
 
-	def set_proxy_chain(self):  # TOR service needs to be on for the proxychain to work.  # IF NOT on turn it on. else if on continue
+	def set_proxy_chain(self):  # for the --proxy command
 		loopback_address = "127.0.0.1"
 		tor_port = "9050"
 		proxy_type = self.proxy_chain
 		err_msg = f"[-] {proxy_type} is already a proxy."
-		proxy_chain_config = "testfileproxy"
+		proxy_chain_config = "/etc/proxychains.conf"
 
 		with open(proxy_chain_config, "r") as f:
 			data = f.read()
 			data = data.split()
 
 		if self.proxy_chain in data[280:]:
-			print(self.red_color(err_msg))
+			print(Colors.red_color(err_msg))
 			exit()
 		else:
 			try:
 				with open(proxy_chain_config, "a") as f:
 					f.write("{}\t{} {}\n".format(proxy_type, loopback_address, tor_port))
-					print(self.bright_blue("\n[+] Successfully wrote to file."))
+					print(Colors.bright_blue("\n[+] Successfully wrote to file."))
 			except Exception as e:
 				print(e)
-				print(self.red_color("[-] Was not able to write to file."))
- 
+				print(Colors.red_color("[-] Was not able to write to file."))
+ 	
+	def start_tor(self):
+		user_browser = self.browser
+		print(Colors.bright_blue("\n[+] Starting tor."))
+		subprocess.call(["proxychains", f"{user_browser}"])
+
+class ViewProxies:
+
+	@staticmethod
+	def scrape_website():
+		source = requests.get("https://www.socks-proxy.net/").text
+		soup = BeautifulSoup(source, 'lxml')
+		table_contents = soup.find('table', id="proxylisttable")
+		rows = table_contents.find_all("td")
+
+		ip = 16
+		port = 17
+		country = 19
+		version = 20
+
+		for letters in rows:
+			try:
+				my_dict = {
+					"IP": rows[ip].text,
+					"PORT": rows[port].text,
+					"COUNTRY": rows[country].text,
+					"VERSION": rows[version].text
+				}
+				ip += 8
+				port += 8
+				country += 8
+				version += 8
+				yield my_dict
+			except IndexError:
+				pass
+
+	@staticmethod
+	def avalaible_proxies():
+		grab_scrape_sites = ViewProxies.scrape_website()
+
+		for letters in grab_scrape_sites:
+			print(letters["IP"] + "\t", end="")
+			print(letters["PORT"] + "\t", end="")
+			print(letters["COUNTRY"] + "\t" + letters["VERSION"])
+			
+
+			
+
 if __name__ == '__main__':
 	try:
 		argument = sys.argv[1:]
 		if "--ip" in argument:
 			print(PublicIp.get_public_ip())
-		elif "--proxy" in argument and "--tor" in argument:
-			Parser().check_tor_running()
+		elif "--proxytor" in argument:
 			TorProxy().set_proxy_chain()
+		elif "--tor" in argument:
+			Parser().check_tor_running()
+			TorProxy().start_tor()
+		elif "--view" in argument:
+			ViewProxies.avalaible_proxies()
 		else:
 			print(Colors.red_color("[-] Invalid argument."))
 	except IndexError:
 		pass
+	except KeyboardInterrupt:
+		print("[-] Exiting")
+		exit()
