@@ -160,12 +160,20 @@ class ViewProxies:
 	def avalaible_proxies():
 		grab_scrape_sites = ViewProxies.scrape_website()
 
+		print(Colors.red_color("IP ------------------- PORT ------------ COUNTRY --------- VERSION"))
+		print("\n")
 		for letters in grab_scrape_sites:
-			print(letters["IP"] + "\t", end="")
-			print(letters["PORT"] + "\t", end="")
-			print(letters["COUNTRY"] + "\t" + letters["VERSION"])
-			
+			get_letters = ViewProxies.proxy_table(letters["IP"], letters["PORT"], letters["COUNTRY"], letters["VERSION"])
+			print(get_letters)
+	
+	@staticmethod
+	def proxy_table(first, second, third, fourth):
+		ip = Colors.white_color(first)
+		port = Colors.bright_blue(second)
+		country = Colors.green_color(third)
+		version = Colors.white_color(fourth)
 
+		return ip + "\t\t" + port + "\t\t" + country + "\t\t" + version
 			
 
 if __name__ == '__main__':
