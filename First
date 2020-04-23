@@ -34,6 +34,8 @@ class Parser(Colors):
 		
 		# ---------------------------------------------------------------------------------------------------- #
 		self.args.add_argument("--view", help="View the avlaliable proxies") # view proxies that are currently avalaible
+		self.args.add_argument("--proxy", help="socks4 or socks5", type=self.check_socks)
+		self.args.add_argument("--port", help="Port number to use", type=self.check_port_number)
 
 		self.args_parsed = self.args.parse_args()
 
@@ -68,6 +70,14 @@ class Parser(Colors):
 			msg = "[-] Invalid browser."
 			raise argparse.ArgumentError(msg)
 		return browser
+
+	def check_port_number(self, port):
+		port = int(port)
+
+		if port < 1023 or port > 65535:
+			msg = "[-] Invalid port number."
+			raise argparse.ArgumentError(msg)
+		return port
 
 class PublicIp:
 
@@ -188,6 +198,8 @@ if __name__ == '__main__':
 			TorProxy().start_tor()
 		elif "--view" in argument:
 			ViewProxies.avalaible_proxies()
+		elif "--port" in argument:
+			Parser()
 		else:
 			print(Colors.red_color("[-] Invalid argument."))
 	except IndexError:
